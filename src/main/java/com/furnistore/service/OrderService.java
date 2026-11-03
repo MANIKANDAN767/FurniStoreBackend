@@ -59,21 +59,21 @@ public class OrderService {
         // Save order first to get the ID
         order = orderRepository.save(order);
 
-        // Create OrderItems
+     // Create OrderItems
         for (CartItem cartItem : cart.getItems()) {
             OrderItem orderItem = new OrderItem();
             
             // 1. Link the Order
             orderItem.setOrder(order);
             
-            // 2. ✅ Set the Product object itself
-            orderItem.setPrice(cartItem.getProduct().getPrice()); 
+            // 2. ✅ FIX: Actually set the Product object!
+            orderItem.setProduct(cartItem.getProduct());
             
-            // 3. ✅ Set the Quantity
+            // 3. Set the Quantity
             orderItem.setQuantity(cartItem.getQuantity());
             
-            // 4. ✅ Set the Price (extract the numeric price FROM the product)
-            orderItem.setPrice(cartItem.getProduct().getPrice()); 
+            // 4. Set the Price (extract the numeric price FROM the product)
+            orderItem.setPrice(cartItem.getProduct().getPrice());
             
             // 5. Save snapshot of name/image in case product details change later
             orderItem.setProductName(cartItem.getProduct().getName());
@@ -84,9 +84,6 @@ public class OrderService {
             // Add to the order's list of items
             order.getItems().add(orderItem);
         }
-
-        orderRepository.save(order);
-
         // Clear the cart after successful order
         cart.getItems().clear();
         cartRepository.save(cart);
