@@ -28,44 +28,42 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(
-            @NonNull HttpServletRequest request,
-            @NonNull HttpServletResponse response,
-            @NonNull FilterChain filterChain
+        @NonNull HttpServletRequest request,
+        @NonNull HttpServletResponse response,
+        @NonNull FilterChain filterChain
     ) throws ServletException, IOException {
         
-        // 1. Get the Authorization header
         final String authHeader = request.getHeader("Authorization");
         
-        // 2. Check if it's a Bearer token
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
-
-        // 3. Extract the token (remove "Bearer " prefix)
-        final String jwt = authHeader.substring(7);
         
-        // 4. Extract username from token
+        final String jwt = authHeader.substring(7);
         final String userEmail = jwtService.extractUsername(jwt);
-
-        // 5. If user is not already authenticated, validate the token
+        
         if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
-
-            // 6. Check if token is valid
-            if (jwtService.isTokenValid(jwt, userDetails)) {
-                // 7. Set authentication in Spring Security Context
-                UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+            try {
+                UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
+                
+                if (jwtService.isTokenValid(jwt, userDetails)) {
+                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                         userDetails,
                         null,
                         userDetails.getAuthorities()
-                );
-                authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                SecurityContextHolder.getContext().setAuthentication(authToken);
+                    );
+                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                }
+            } catch (Exception e) {
+                // Token is invalid, expired, or malformed
+                // Do nothing - Spring Security will return 401/403
+                // You can add logging here if needed:
+                // logger.warn("Invalid JWT token: {}", e.getMessage());
             }
         }
-
-        // 8. Continue the filter chain
+        
         filterChain.doFilter(request, response);
     }
 }

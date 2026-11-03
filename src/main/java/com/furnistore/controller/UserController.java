@@ -2,10 +2,8 @@ package com.furnistore.controller;
 
 import com.furnistore.entity.User;
 import com.furnistore.repository.UserRepository;
-import com.furnistore.security.JwtService;
-import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -13,24 +11,23 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/users")
 public class UserController {
-
+    
     private final UserRepository userRepository;
-    private final JwtService jwtService;
-    private final UserDetailsService userDetailsService;
-
-    public UserController(UserRepository userRepository, JwtService jwtService, UserDetailsService userDetailsService) {
+    
+    public UserController(UserRepository userRepository) {
         this.userRepository = userRepository;
-        this.jwtService = jwtService;
-        this.userDetailsService = userDetailsService;
     }
-
+    
     // GET current user profile
     @GetMapping("/profile")
-    public ResponseEntity<?> getProfile(HttpServletRequest request) {
-        String email = extractEmailFromToken(request);
-        User user = userRepository.findByEmail(email)
+    public ResponseEntity<?> getProfile(Authentication authentication) {
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).body("Unauthorized");
+        }
+        
+        User user = userRepository.findByEmail(authentication.getName())
                 .orElseThrow(() -> new RuntimeException("User not found"));
-                
+        
         return ResponseEntity.ok(Map.of(
             "id", user.getId(),
             "name", user.getName(),
@@ -39,15 +36,21 @@ public class UserController {
             "role", user.getRole()
         ));
     }
-
+    
     // UPDATE current user profile
     @PutMapping("/profile")
-    public ResponseEntity<?> updateProfile(@RequestBody Map<String, String> updates, HttpServletRequest request) {
-        String email = extractEmailFromToken(request);
-        User user = userRepository.findByEmail(email)
+    public ResponseEntity<?> updateProfile(
+            @RequestBody Map<String, String> updates, 
+            Authentication authentication) {
+        
+        if (authentication == null || !authentication.isAuthenticated()) {
+            return ResponseEntity.status(401).body("Unauthorized");
+        }
+        
+        User user = userRepository.findByEmail(authentication.getName())
                 .orElseThrow(() -> new RuntimeException("User not found"));
         
-        // Update only allowed fields (never allow email/password changes here for security)
+        // Update only allowed fields
         if (updates.containsKey("name")) {
             user.setName(updates.get("name"));
         }
@@ -64,15 +67,5 @@ public class UserController {
             "phone", user.getPhone() != null ? user.getPhone() : "",
             "role", user.getRole()
         ));
-    }
-
-    // Helper method to extract email from JWT
-    private String extractEmailFromToken(HttpServletRequest request) {
-        String authHeader = request.getHeader("Authorization");
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            throw new RuntimeException("Missing or invalid token");
-        }
-        String token = authHeader.substring(7);
-        return jwtService.extractUsername(token);
     }
 }

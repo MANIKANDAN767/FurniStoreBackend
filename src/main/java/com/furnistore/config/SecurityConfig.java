@@ -46,17 +46,18 @@ public class SecurityConfig {
             .csrf(csrf -> csrf.disable())
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .authorizeHttpRequests(auth -> auth
-                .requestMatchers("/api/auth/**").permitAll()
-                .requestMatchers("/api/products/**").permitAll()
-                .requestMatchers("/api/categories/**").permitAll()
-                .requestMatchers("/api/reviews/**").permitAll()
-                .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                .requestMatchers("/api/cart/**").authenticated()
-                .requestMatchers("/api/orders/**").authenticated()
-                .requestMatchers("/api/wishlist/**").authenticated()
-                .requestMatchers("/api/addresses/**").authenticated()
-                .anyRequest().authenticated()
-            )
+            	    .requestMatchers("/api/auth/**").permitAll()
+            	    .requestMatchers("/api/products/**").permitAll()
+            	    .requestMatchers("/api/categories/**").permitAll()
+            	    .requestMatchers("/api/reviews/**").permitAll()
+            	    .requestMatchers("/api/admin/**").hasRole("ADMIN")
+            	    .requestMatchers("/api/users/profile").authenticated() // Add this line
+            	    .requestMatchers("/api/cart/**").authenticated()
+            	    .requestMatchers("/api/orders/**").authenticated()
+            	    .requestMatchers("/api/wishlist/**").authenticated()
+            	    .requestMatchers("/api/addresses/**").authenticated()
+            	    .anyRequest().authenticated()
+            	)
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authenticationProvider(authenticationProvider())
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
@@ -80,7 +81,8 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5173"));
+        // Add both ports to handle Vite's automatic port shifting
+        configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:5174"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
