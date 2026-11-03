@@ -50,12 +50,15 @@ public class SecurityConfig {
             	    .requestMatchers("/api/products/**").permitAll()
             	    .requestMatchers("/api/categories/**").permitAll()
             	    .requestMatchers("/api/reviews/**").permitAll()
+
             	    .requestMatchers("/api/admin/**").hasRole("ADMIN")
-            	    .requestMatchers("/api/users/profile").authenticated() // Add this line
+
+            	    .requestMatchers("/api/users/profile").authenticated()
             	    .requestMatchers("/api/cart/**").authenticated()
             	    .requestMatchers("/api/orders/**").authenticated()
             	    .requestMatchers("/api/wishlist/**").authenticated()
             	    .requestMatchers("/api/addresses/**").authenticated()
+
             	    .anyRequest().authenticated()
             	)
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

@@ -34,36 +34,42 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
         
         final String authHeader = request.getHeader("Authorization");
-        
+        System.out.println("🔍 [JWT Filter] Auth Header: " + authHeader); // <-- ADD THIS
+
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            System.out.println("⚠️ [JWT Filter] No Bearer token found."); // <-- ADD THIS
             filterChain.doFilter(request, response);
             return;
         }
-        
+
         final String jwt = authHeader.substring(7);
         final String userEmail = jwtService.extractUsername(jwt);
-        
+        System.out.println("🔍 [JWT Filter] Extracted Email: " + userEmail); // <-- ADD THIS
+
         if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             try {
-                UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
-                
-                if (jwtService.isTokenValid(jwt, userDetails)) {
-                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                        userDetails,
-                        null,
-                        userDetails.getAuthorities()
-                    );
-                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    SecurityContextHolder.getContext().setAuthentication(authToken);
+            	UserDetails userDetails =
+            		    this.userDetailsService.loadUserByUsername(userEmail);
+
+            		if (jwtService.isTokenValid(jwt, userDetails)) {
+            		    UsernamePasswordAuthenticationToken authToken =
+            		        new UsernamePasswordAuthenticationToken(
+            		            userDetails,
+            		            null,
+            		            userDetails.getAuthorities()
+            		        );
+
+            		    SecurityContextHolder.getContext()
+            		        .setAuthentication(authToken);
+            		}
+                 else {
+                    System.out.println("❌ [JWT Filter] Token is INVALID (failed isTokenValid check)."); // <-- ADD THIS
                 }
             } catch (Exception e) {
-                // Token is invalid, expired, or malformed
-                // Do nothing - Spring Security will return 401/403
-                // You can add logging here if needed:
-                // logger.warn("Invalid JWT token: {}", e.getMessage());
+                System.err.println("❌ [JWT Filter] Exception: " + e.getMessage()); // <-- ADD THIS
             }
         }
-        
+
         filterChain.doFilter(request, response);
-    }
+     }
 }
