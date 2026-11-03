@@ -1,7 +1,7 @@
 package com.furnistore.entity;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -13,35 +13,39 @@ public class Cart {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY)
+    @OneToOne
     @JoinColumn(name = "user_id", nullable = false, unique = true)
+    @JsonIgnore // Prevents sending the User object and breaking the JSON
     private User user;
 
+    // ✅ THE MAGIC FIX: Add fetch = FetchType.EAGER here!
+    // This forces Hibernate to load the items WHILE the database session is still open.
     @OneToMany(mappedBy = "cart", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<CartItem> items = new ArrayList<>();
 
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
+    // --- Getters and Setters ---
+    
+    public Long getId() { 
+        return id; 
+    }
+    
+    public void setId(Long id) { 
+        this.id = id; 
     }
 
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+    public User getUser() { 
+        return user; 
+    }
+    
+    public void setUser(User user) { 
+        this.user = user; 
     }
 
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
-    public User getUser() { return user; }
-    public void setUser(User user) { this.user = user; }
-    public List<CartItem> getItems() { return items; }
-    public void setItems(List<CartItem> items) { this.items = items; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public List<CartItem> getItems() { 
+        return items; 
+    }
+    
+    public void setItems(List<CartItem> items) { 
+        this.items = items; 
+    }
 }

@@ -1,13 +1,13 @@
 package com.furnistore.controller;
 
 import com.furnistore.dto.AddToCartRequest;
-import com.furnistore.dto.CartResponse;
 import com.furnistore.dto.UpdateQuantityRequest;
+import com.furnistore.entity.Cart;
+import com.furnistore.entity.User;
 import com.furnistore.service.CartService;
 import com.furnistore.service.UserService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -22,42 +22,36 @@ public class CartController {
         this.userService = userService;
     }
 
-    private Long getCurrentUserId(UserDetails userDetails) {
-        return userService.getUserIdByEmail(userDetails.getUsername());
+    @GetMapping
+    public ResponseEntity<Cart> viewCart(Authentication authentication) {
+        User user = userService.getUserByEmail(authentication.getName());
+        return ResponseEntity.ok(cartService.viewCart(user.getId()));
     }
 
     @PostMapping("/add")
-    public ResponseEntity<CartResponse> addToCart(
-            @AuthenticationPrincipal UserDetails userDetails,
-            @RequestBody AddToCartRequest request) {
-        return ResponseEntity.ok(cartService.addToCart(getCurrentUserId(userDetails), request));
+    public ResponseEntity<Cart> addToCart(@RequestBody AddToCartRequest request, Authentication authentication) {
+        User user = userService.getUserByEmail(authentication.getName());
+        return ResponseEntity.ok(cartService.addToCart(user.getId(), request));
     }
 
-    @GetMapping
-    public ResponseEntity<CartResponse> viewCart(
-            @AuthenticationPrincipal UserDetails userDetails) {
-        return ResponseEntity.ok(cartService.viewCart(getCurrentUserId(userDetails)));
-    }
-
+    // ✅ FIX: This now matches the frontend's PUT /api/cart/items/{id}
     @PutMapping("/items/{cartItemId}")
-    public ResponseEntity<CartResponse> updateQuantity(
-            @AuthenticationPrincipal UserDetails userDetails,
-            @PathVariable Long cartItemId,
-            @RequestBody UpdateQuantityRequest request) {
-        return ResponseEntity.ok(cartService.updateQuantity(getCurrentUserId(userDetails), cartItemId, request));
+    public ResponseEntity<Cart> updateQuantity(@PathVariable Long cartItemId, @RequestBody UpdateQuantityRequest request, Authentication authentication) {
+        User user = userService.getUserByEmail(authentication.getName());
+        return ResponseEntity.ok(cartService.updateQuantity(user.getId(), cartItemId, request));
     }
 
+    // ✅ FIX: This now matches the frontend's DELETE /api/cart/items/{id}
     @DeleteMapping("/items/{cartItemId}")
-    public ResponseEntity<CartResponse> removeFromCart(
-            @AuthenticationPrincipal UserDetails userDetails,
-            @PathVariable Long cartItemId) {
-        return ResponseEntity.ok(cartService.removeFromCart(getCurrentUserId(userDetails), cartItemId));
+    public ResponseEntity<Cart> removeFromCart(@PathVariable Long cartItemId, Authentication authentication) {
+        User user = userService.getUserByEmail(authentication.getName());
+        return ResponseEntity.ok(cartService.removeFromCart(user.getId(), cartItemId));
     }
 
     @DeleteMapping("/clear")
-    public ResponseEntity<Void> clearCart(
-            @AuthenticationPrincipal UserDetails userDetails) {
-        cartService.clearCart(getCurrentUserId(userDetails));
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<String> clearCart(Authentication authentication) {
+        User user = userService.getUserByEmail(authentication.getName());
+        cartService.clearCart(user.getId());
+        return ResponseEntity.ok("Cart cleared successfully");
     }
 }

@@ -1,136 +1,115 @@
 package com.furnistore.service;
 
-import com.furnistore.dto.CheckoutRequest;
-import com.furnistore.dto.OrderItemResponse;
-import com.furnistore.dto.OrderResponse;
+import com.furnistore.dto.CheckoutRequest;  // ✅ CORRECT
 import com.furnistore.entity.*;
 import com.furnistore.repository.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
 public class OrderService {
 
     private final OrderRepository orderRepository;
+    private final UserRepository userRepository;
     private final CartRepository cartRepository;
     private final AddressRepository addressRepository;
-    private final UserRepository userRepository;
-    private final CouponService couponService; // ✅ Added dependency
 
-    public OrderService(OrderRepository orderRepository, 
-                        CartRepository cartRepository,
-                        AddressRepository addressRepository, 
-                        UserRepository userRepository,
-                        CouponService couponService) { // ✅ Added to constructor
+    public OrderService(OrderRepository orderRepository, UserRepository userRepository, 
+                        CartRepository cartRepository, AddressRepository addressRepository) {
         this.orderRepository = orderRepository;
+        this.userRepository = userRepository;
         this.cartRepository = cartRepository;
         this.addressRepository = addressRepository;
-        this.userRepository = userRepository;
-        this.couponService = couponService;
     }
 
     @Transactional
-    public OrderResponse placeOrder(Long userId, CheckoutRequest request) {
-        // 1. Get User and Address
+    public Order checkout(Long userId, CheckoutRequest request) { // ✅ MUST be CheckoutRequest
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        
-        Address address = addressRepository.findById(request.getAddressId())
+
+        Cart cart = cartRepository.findByUser(user)
+                .orElseThrow(() -> new RuntimeException("Cart not found"));
+
+        if (cart.getItems() == null || cart.getItems().isEmpty()) {
+            throw new RuntimeException("Cart is empty");
+        }
+
+        // ✅ This will now correctly read the addressId from CheckoutRequest
+        Address shippingAddress = addressRepository.findById(request.getAddressId())
                 .orElseThrow(() -> new RuntimeException("Address not found"));
 
-        if (!address.getUser().getId().equals(userId)) {
-            throw new RuntimeException("Address does not belong to this user");
-        }
-
-        // 2. Get Cart
-        Cart cart = cartRepository.findByUserId(userId)
-                .orElseThrow(() -> new RuntimeException("Cart is empty"));
-
-        if (cart.getItems().isEmpty()) {
-            throw new RuntimeException("Cannot place order with an empty cart");
-        }
-
-        // 3. Create Order
         Order order = new Order();
         order.setUser(user);
-        order.setAddress(address);
+        order.setAddress(shippingAddress); // Matches your entity
         order.setStatus("PENDING");
+        order.setOrderDate(LocalDateTime.now());
+        
+        // Calculate total
+        BigDecimal total = BigDecimal.ZERO;
+        for (CartItem cartItem : cart.getItems()) {
+            BigDecimal itemTotal = cartItem.getProduct().getPrice().multiply(BigDecimal.valueOf(cartItem.getQuantity()));
+            total = total.add(itemTotal);
+        }
+        order.setTotalAmount(total);
 
-        BigDecimal originalTotal = BigDecimal.ZERO;
-        List<OrderItem> orderItems = new ArrayList<>();
+        // Save order first to get the ID
+        order = orderRepository.save(order);
 
-        // 4. Move Cart Items to Order Items & Calculate Original Total
+        // Create OrderItems
         for (CartItem cartItem : cart.getItems()) {
             OrderItem orderItem = new OrderItem();
+            
+            // 1. Link the Order
             orderItem.setOrder(order);
-            orderItem.setProduct(cartItem.getProduct());
+            
+            // 2. ✅ Set the Product object itself
+            orderItem.setPrice(cartItem.getProduct().getPrice()); 
+            
+            // 3. ✅ Set the Quantity
             orderItem.setQuantity(cartItem.getQuantity());
-            orderItem.setPriceAtPurchase(cartItem.getProduct().getPrice());
             
-            originalTotal = originalTotal.add(
-                cartItem.getProduct().getPrice().multiply(BigDecimal.valueOf(cartItem.getQuantity()))
-            );
+            // 4. ✅ Set the Price (extract the numeric price FROM the product)
+            orderItem.setPrice(cartItem.getProduct().getPrice()); 
             
-            orderItems.add(orderItem);
+            // 5. Save snapshot of name/image in case product details change later
+            orderItem.setProductName(cartItem.getProduct().getName());
+            if (cartItem.getProduct().getImages() != null && !cartItem.getProduct().getImages().isEmpty()) {
+                orderItem.setProductImage(cartItem.getProduct().getImages().get(0));
+            }
+            
+            // Add to the order's list of items
+            order.getItems().add(orderItem);
         }
 
-        // ✅ 5. Apply Coupon Discount
-        BigDecimal discount = couponService.validateAndApplyCoupon(
-            request.getCouponCode(), originalTotal
-        );
-        
-        BigDecimal finalTotal = originalTotal.subtract(discount);
-
-        order.setItems(orderItems);
-        order.setTotalAmount(finalTotal); // ✅ Use discounted total
-
-        // 6. Save Order and Clear Cart
         orderRepository.save(order);
+
+        // Clear the cart after successful order
         cart.getItems().clear();
         cartRepository.save(cart);
 
-        return mapToOrderResponse(order);
+        return order;
     }
 
-    @Transactional(readOnly = true)
-    public List<OrderResponse> getOrderHistory(Long userId) {
-        return orderRepository.findByUserIdOrderByOrderDateDesc(userId).stream()
-                .map(this::mapToOrderResponse)
-                .toList();
+    public List<Order> getUserOrders(Long userId) {
+        return orderRepository.findByUserId(userId);
     }
-
-    @Transactional(readOnly = true)
-    public List<OrderResponse> getAllOrdersForAdmin() {
-        return orderRepository.findAllByOrderByOrderDateDesc().stream()
-                .map(this::mapToOrderResponse)
-                .toList();
-    }
-
-    private OrderResponse mapToOrderResponse(Order order) {
-        OrderResponse response = new OrderResponse();
-        response.setOrderId(order.getId());
-        response.setOrderDate(order.getOrderDate());
-        response.setStatus(order.getStatus());
-        response.setTotalAmount(order.getTotalAmount());
-
-        List<OrderItemResponse> itemResponses = new ArrayList<>();
-        for (OrderItem item : order.getItems()) {
-            OrderItemResponse itemRes = new OrderItemResponse();
-            itemRes.setProductName(item.getProduct().getName());
-            
-            List<String> images = item.getProduct().getImages();
-            String imageUrl = (images != null && !images.isEmpty()) ? images.get(0) : null;
-            itemRes.setProductImage(imageUrl);
-            
-            itemRes.setQuantity(item.getQuantity());
-            itemRes.setPrice(item.getPriceAtPurchase());
-            itemResponses.add(itemRes);
+    
+    public Order getOrderById(Long orderId, Long userId) {
+        Order order = orderRepository.findById(orderId)
+                .orElseThrow(() -> new RuntimeException("Order not found"));
+        if (!order.getUser().getId().equals(userId)) {
+            throw new RuntimeException("Unauthorized");
         }
-        response.setItems(itemResponses);
-        return response;
+        return order;
+    }
+    
+    // ✅ NEW METHOD: Get all orders for the Admin Dashboard
+    public List<Order> getAllOrdersForAdmin() {
+        // This fetches all orders from the database, sorted by newest first
+        return orderRepository.findAllByOrderByOrderDateDesc(); 
     }
 }

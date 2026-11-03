@@ -1,6 +1,7 @@
 package com.furnistore.entity;
 
 import jakarta.persistence.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
 @Table(name = "cart_items")
@@ -12,15 +13,18 @@ public class CartItem {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "cart_id", nullable = false)
+    @JsonIgnore // ✅ KEEP THIS - prevents infinite loop back to Cart
     private Cart cart;
 
-    @ManyToOne(fetch = FetchType.EAGER) // <--- Change LAZY to EAGER
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "product_id", nullable = false)
+    //  DO NOT put @JsonIgnore here! We NEED the product data!
     private Product product;
 
     @Column(nullable = false)
     private Integer quantity;
 
+    // Getters and Setters
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 

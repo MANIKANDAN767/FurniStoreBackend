@@ -1,15 +1,13 @@
 package com.furnistore.controller;
-
-import com.furnistore.dto.CheckoutRequest;
-import com.furnistore.dto.OrderResponse;
+import com.furnistore.dto.OrderResponse; // ✅ ADD THIS LINE
+import com.furnistore.dto.CheckoutRequest; // ✅ CORRECT
+import com.furnistore.entity.Order;
+import com.furnistore.entity.User;
 import com.furnistore.service.OrderService;
 import com.furnistore.service.UserService;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -23,20 +21,18 @@ public class OrderController {
         this.userService = userService;
     }
 
-    private Long getCurrentUserId(UserDetails userDetails) {
-        return userService.getUserIdByEmail(userDetails.getUsername());
-    }
-
     @PostMapping("/checkout")
-    public ResponseEntity<OrderResponse> placeOrder(
-            @AuthenticationPrincipal UserDetails userDetails,
-            @RequestBody CheckoutRequest request) {
-        return ResponseEntity.ok(orderService.placeOrder(getCurrentUserId(userDetails), request));
-    }
-
-    @GetMapping("/history")
-    public ResponseEntity<List<OrderResponse>> getOrderHistory(
-            @AuthenticationPrincipal UserDetails userDetails) {
-        return ResponseEntity.ok(orderService.getOrderHistory(getCurrentUserId(userDetails)));
+    public ResponseEntity<OrderResponse> checkout(@RequestBody CheckoutRequest request, Authentication authentication) {
+        // Get the logged-in user's email from the JWT token
+        String email = authentication.getName();
+        
+        // Fetch the user from the database
+        User user = userService.getUserByEmail(email);
+        
+        // Pass the CheckoutRequest to the service
+        Order order = orderService.checkout(user.getId(), request);
+        
+        // Return the response (adjust this if your OrderResponse constructor takes different arguments)
+        return ResponseEntity.ok(new OrderResponse(order)); 
     }
 }

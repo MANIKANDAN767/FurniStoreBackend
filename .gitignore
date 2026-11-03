@@ -1,3 +1,16 @@
-target/ 
-src/main/resources/application.properties 
-.env 
+# Spring Boot
+target/
+
+# Eclipse
+.classpath
+.project
+.settings/
+.factorypath
+
+# Private configuration
+application.properties
+src/main/resources/application.properties
+.env
+
+# Logs
+*.log

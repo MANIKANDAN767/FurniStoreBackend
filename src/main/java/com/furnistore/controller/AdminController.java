@@ -1,7 +1,6 @@
 package com.furnistore.controller;
 
-import com.furnistore.dto.AddressRequest;
-import com.furnistore.dto.OrderResponse;
+import com.furnistore.entity.Order;
 import com.furnistore.entity.Product;
 import com.furnistore.entity.Role;
 import com.furnistore.entity.User;
@@ -16,7 +15,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/admin")
-@PreAuthorize("hasRole('ADMIN')") // 🔒 This ensures ONLY admins can access ANY endpoint in this class
+@PreAuthorize("hasRole('ADMIN')") // 🔒 ONLY admins can access this class
 public class AdminController {
 
     private final UserRepository userRepository;
@@ -34,25 +33,22 @@ public class AdminController {
     public ResponseEntity<String> promoteToAdmin(@PathVariable Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-     // ✅ CORRECT - Passing the Enum constant
-        user.setRole(Role.ADMIN); // Ensure your User entity has a setRole method
+        user.setRole(Role.ADMIN); 
         userRepository.save(user);
         return ResponseEntity.ok("User promoted to ADMIN");
     }
 
-    // 2. Get All Orders (For Admin Dashboard)
+    // 2. Get All Orders (For Admin Dashboard) - ✅ NOW THIS WILL WORK!
     @GetMapping("/orders")
-    public ResponseEntity<List<OrderResponse>> getAllOrders() {
-        // Note: We might need to update OrderService to have a 'findAll' method
-        // For now, let's assume we want to see all orders from all users.
-        // You can add a method in OrderRepository: List<Order> findAllByOrderByOrderDateDesc();
-        return ResponseEntity.ok(orderService.getAllOrdersForAdmin());
+    public ResponseEntity<List<Order>> getAllOrders() {
+        List<Order> orders = orderService.getAllOrdersForAdmin();
+        return ResponseEntity.ok(orders);
     }
 
     // 3. Update Order Status (e.g., PENDING -> SHIPPED)
     @PutMapping("/orders/{orderId}/status")
     public ResponseEntity<String> updateOrderStatus(@PathVariable Long orderId, @RequestParam String status) {
-        // Logic to update order status would go here
+        // You can add the logic here later to find the order and update its status
         return ResponseEntity.ok("Order status updated to " + status);
     }
 
